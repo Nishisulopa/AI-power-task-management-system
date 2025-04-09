@@ -1,5 +1,7 @@
 const express = require("express");
 const authMiddleware = require("../middleware/authMiddleware2");
+const { authorizeRoles } = require("../middleware/authorizeRoles");
+
 const {
   addTask,
   getTask,
@@ -10,10 +12,10 @@ const {
 const router = express.Router();
 
 // Create a new task
-router.post("/add", authMiddleware, addTask);
+router.post("/add", authMiddleware, authorizeRoles("Manager"), addTask);
 
 // Get tasks for a user or all tasks (if manager/admin)
-router.get("/", authMiddleware, getTask);
+router.get("/get", authMiddleware, getTask);
 
 // Update a task
 router.put("/:id", authMiddleware, updateTask);

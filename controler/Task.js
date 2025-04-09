@@ -1,27 +1,45 @@
 const Task = require("../models/Task");
 
+// ✅ Only MANAGER can add a task
 const addTask = async (req, res) => {
   try {
-    const { title, description, priority, assignedTo } = req.body;
+    if (req.user.role !== "Manager") {
+      return res
+        .status(403)
+        .json({ message: "Only Managers can create tasks" });
+    }
+
+    const { title, description, priority, status, assignedTo } = req.body;
+
+    if (!assignedTo) {
+      return res
+        .status(400)
+        .json({ message: "AssignedTo is required for creating a task" });
+    }
+
     const task = new Task({
       title,
       description,
       priority,
-      assignedTo: assignedTo || req.user.id, // default to logged-in user / pass the userId
+      status,
+      assignedTo,
     });
 
     await task.save();
-    res.status(201).json({ message: "successfully add the task" }, task);
+    res.status(201).json({ message: "Successfully added the task", task });
   } catch (error) {
     res.status(500).json({ message: "Failed to create task", error });
   }
 };
 
+// ✅ Manager can get all tasks
+// ✅ Admin can also view all tasks (optional for audit purposes)
+// ✅ User can only see their assigned tasks
 const getTask = async (req, res) => {
   try {
     const filter = ["Manager", "Admin"].includes(req.user.role)
-      ? {} // get all tasks
-      : { assignedTo: req.user.id }; // only user tasks
+      ? {}
+      : { assignedTo: req.user.id };
 
     const tasks = await Task.find(filter).populate("assignedTo", "name email");
     res.json(tasks);
@@ -30,17 +48,19 @@ const getTask = async (req, res) => {
   }
 };
 
+// ✅ Only the assigned user or Manager/Admin can update the task
 const updateTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: "Task not found" });
 
-    // Only the assigned user or manager/admin can update
     if (
       task.assignedTo.toString() !== req.user.id &&
       !["Manager", "Admin"].includes(req.user.role)
     ) {
-      return res.status(403).json({ message: "Not authorized" });
+      return res
+        .status(403)
+        .json({ message: "Not authorized to update this task" });
     }
 
     const { title, description, priority, status } = req.body;
@@ -48,6 +68,7 @@ const updateTask = async (req, res) => {
     task.description = description ?? task.description;
     task.priority = priority ?? task.priority;
     task.status = status ?? task.status;
+    task.assignedTo = assignedTo ?? task.assignedTo;
 
     await task.save();
     res.json(task);
@@ -56,17 +77,19 @@ const updateTask = async (req, res) => {
   }
 };
 
+// ✅ Only the assigned user or Manager/Admin can delete the task
 const deleteTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: "Task not found" });
 
-    // Only assigned user or manager/admin can delete
     if (
       task.assignedTo.toString() !== req.user.id &&
       !["Manager", "Admin"].includes(req.user.role)
     ) {
-      return res.status(403).json({ message: "Not authorized" });
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this task" });
     }
 
     await task.remove();

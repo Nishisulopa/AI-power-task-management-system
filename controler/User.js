@@ -9,6 +9,18 @@ const userRegister = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
+    //check if admin or manager again register
+
+    const isRoleExist = await User.findOne({
+      role: { $in: ["Admin", "Manager"] },
+    });
+
+    if (isRoleExist) {
+      return res
+        .status(400)
+        .json({ message: "Admin or Manager role already exists" });
+    }
+
     // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
